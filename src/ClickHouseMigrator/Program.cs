@@ -12,7 +12,7 @@ namespace ClickHouseMigrator
 	{
 		static void Main(string[] args)
 		{
-			
+			Console.WriteLine(Environment.ProcessorCount);
 			Parser.Default.ParseArguments<Options>(args).WithParsed(a =>
 			{
 				var loggerConfiguration = new LoggerConfiguration()

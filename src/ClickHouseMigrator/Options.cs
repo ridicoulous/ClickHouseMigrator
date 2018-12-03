@@ -48,6 +48,8 @@ namespace ClickHouseMigrator
 		[Option("drop", Required = false, HelpText = "If drop target table if exists.")]
 		public bool Drop { get; set; }
 
+		[Option("start", Required = false, HelpText = "Number or row to start from")]
+		public int Start { get; set; } = 0;
 		[Option("ignorecase", Required = false, HelpText = "Ignore database, table name, column name case.")]
 		public bool IgnoreCase { get; set; } = true;
 

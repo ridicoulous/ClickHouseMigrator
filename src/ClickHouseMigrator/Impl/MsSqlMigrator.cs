@@ -11,10 +11,12 @@ namespace ClickHouseMigrator.Impl
 	public class MsSqlMigrator : Migrator
 	{
 		private List<Column> _columns;
-
+		private Options _options;
+		private bool IsStarted;
 		public MsSqlMigrator(Options options) : base(options)
 		{
-
+			IsStarted = false;
+			_options = options;
 		}
 		protected override List<Column> GetColumns(string host, int port, string user, string pass, string database, string table)
 		{
@@ -113,10 +115,10 @@ ORDER BY KU.TABLE_NAME, KU.ORDINAL_POSITION; ").ToList();
 			{
 				throw new ArgumentNullException("database");
 			}
-			var passwordPart = string.IsNullOrWhiteSpace(pass) ? "" : $"Password={pass}";
+			var passwordPart = string.IsNullOrWhiteSpace(pass) ? "" : $"Password={pass};";
 
 			var connectString =
-				$"Server=tcp:{host},{port};Initial Catalog={database};Persist Security Info=False;User ID={user};{passwordPart};MultipleActiveResultSets=False;Encrypt=False;TrustServerCertificate=True;Connection Timeout=300;";
+				$"Server=tcp:{host},{port};Initial Catalog={database};Persist Security Info=False;User ID={user};{passwordPart}MultipleActiveResultSets=False;Encrypt=False;TrustServerCertificate=True;Connection Timeout=300;";
 
 			var conn = new SqlConnection(connectString);
 			return conn;
@@ -125,6 +127,12 @@ ORDER BY KU.TABLE_NAME, KU.ORDINAL_POSITION; ").ToList();
 		private string GetSelectPrimaryKeySql(string primaryKeysSql, string tableSql, int batch, int batchCount)
 		{
 			var skipRowsCount = batch * batchCount;
+
+			if (!_options.Drop&&_options.Start>0&&IsStarted)
+			{
+				skipRowsCount = _options.Start;
+				IsStarted = true;
+			}
 			return $@"SELECT {primaryKeysSql} FROM {tableSql} ORDER BY {primaryKeysSql} OFFSET ({skipRowsCount}) ROWS FETCH NEXT {batchCount} ROWS ONLY;";			
 		}
 
@@ -144,7 +152,6 @@ ORDER BY KU.TABLE_NAME, KU.ORDINAL_POSITION; ").ToList();
 			{
 				var values = primaries.ElementAt(j);
 				builder.Append("(");
-
 				for (int k = 0; k < primaryKeys.Count; ++k)
 				{
 					var parameterName = $"@P{j}";
@@ -156,7 +163,6 @@ ORDER BY KU.TABLE_NAME, KU.ORDINAL_POSITION; ").ToList();
 					parameter.Value = values[primaryKeys[k].Name];
 					command.Parameters.Add(parameter);
 				}
-
 				builder.Append(j == primaries.Length - 1 ? ") " : "), ");
 			}
 			var inParameters = builder.Remove(builder.Length - 1, 1).ToString();			
@@ -166,8 +172,12 @@ ORDER BY KU.TABLE_NAME, KU.ORDINAL_POSITION; ").ToList();
 		}
 
 		protected override string GenerateQueryAllSql(string selectColumnsSql, string tableSql)
-		{
+		{			
 			return $"SELECT {selectColumnsSql} FROM {tableSql}";
+		}
+		public string GenerateResyncQueryAllSql(string selectColumnsSql, string tableSql, string primaryKey, List<int> notFilledRows)
+		{			
+			return $"SELECT {selectColumnsSql} FROM {tableSql} where {primaryKey} not in ({String.Join(",",notFilledRows)});";
 		}
 
 		private string GeneratePrimaryKeysSql(List<Column> columns)

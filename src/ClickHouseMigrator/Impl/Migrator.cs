@@ -31,6 +31,11 @@ namespace ClickHouseMigrator.Impl
 		protected Migrator(Options options)
 		{
 			_options = options;
+			if(!options.Drop&&options.Start!=0)
+			{
+				_counter = options.Start;
+			}
+			
 		}
 
 		protected abstract string ConvertToClickHouserDataType(string type);
